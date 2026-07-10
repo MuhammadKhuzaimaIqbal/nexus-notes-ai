@@ -1,40 +1,60 @@
 'use client'
 
 import { useState } from 'react'
-import { createNote, updateNote, deleteNote } from '../actions/notes'
+import { createNote, updateNote, deleteNote, uploadAttachment } from '../actions/notes'
 import { Trash2, Edit3, Plus, X, Check } from 'lucide-react'
 
 interface Note {
   id: string
   title: string
   content: string
+  image_url?: string | null
   created_at: string
 }
 
 export default function NotesDashboard({ initialNotes }: { initialNotes: Note[] }) {
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
-  const [editingId, setEditingId] = useState<string | null>(null)
+  const [file, setFile] = useState<File | null>(null)
+  const [uploading, setUploading] = useState(false)
   
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [editTitle, setEditTitle] = useState('')
   const [editContent, setEditContent] = useState('')
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!title.trim() || !content.trim()) return
+    
+    setUploading(true)
     try {
-      await createNote(title, content)
+      let uploadedUrl = null
+
+      if (file) {
+        const formData = new FormData()
+        formData.append('file', file)
+        uploadedUrl = await uploadAttachment(formData)
+      }
+
+      await createNote(title, content, uploadedUrl)
+      
       setTitle('')
       setContent('')
+      setFile(null)
+      
+      const fileInput = document.getElementById('file-upload') as HTMLInputElement
+      if (fileInput) fileInput.value = ''
     } catch (err) {
-      alert('Failed to save note')
+      alert('Failed to save note with attachment')
+    } finally {
+      setUploading(false)
     }
   }
 
   const handleStartEdit = (note: Note) => {
     setEditingId(note.id)
     setEditTitle(note.title)
-    setEditContent(note.content)
+    setEditContent(note.content || '')
   }
 
   const handleUpdate = async (id: string) => {
@@ -58,76 +78,105 @@ export default function NotesDashboard({ initialNotes }: { initialNotes: Note[] 
 
   return (
     <div className="space-y-8">
-      <form onSubmit={handleCreate} className="bg-black p-6 rounded-xl shadow-sm space-y-4">
-        <h3 className="text-lg font-semibold text-gray-700 flex items-center gap-2">
-          <Plus size={18} /> Take a new note...
+      <form onSubmit={handleCreate} className="bg-black p-6 rounded-xl shadow-xl space-y-4 border border-gray-800">
+        <h3 className="text-lg font-semibold text-slate-200 flex items-center gap-2">
+          <Plus size={18} className="text-blue-400" /> Take a new note...
         </h3>
         <input
           type="text"
           placeholder="Title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="w-full p-2 border border-gray-200 rounded-lg focus:outline-none"
+          className="w-full p-2.5 bg-gray-900 border border-gray-800 rounded-lg text-slate-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 transition"
         />
         <textarea
           placeholder="Write details..."
           value={content}
           onChange={(e) => setContent(e.target.value)}
           rows={3}
-          className="w-full p-2 border border-gray-200 rounded-lg focus:outline-none  "
+          className="w-full p-2.5 bg-gray-900 border border-gray-800 rounded-lg text-slate-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 transition resize-none"
         />
+        
+        <div className="space-y-1">
+          <label className="text-xs text-gray-400 font-medium block mb-1">Attach an image (Optional)</label>
+          <input
+            id="file-upload"
+            type="file"
+            accept="image/*"
+            onChange={(e) => setFile(e.target.files?.[0] || null)}
+            className="w-full text-sm text-gray-400 file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-gray-800 file:text-gray-200 hover:file:bg-gray-700 cursor-pointer"
+          />
+        </div>
+
         <button
           type="submit"
-          className="px-4 py-2 bg-blue-600 text-black rounded-lg hover:bg-blue-700 transition font-medium text-sm"
+          disabled={uploading}
+          className="w-full sm:w-auto px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-800 disabled:text-gray-400 transition font-medium text-sm shadow-md cursor-pointer"
         >
-          Save Note
+          {uploading ? 'Uploading...' : 'Save Note'}
         </button>
       </form>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {initialNotes.length === 0 ? (
-          <p className="text-gray-500 text-center md:col-span-2 py-8">No notes yet. Start writing above!</p>
+          <p className="text-gray-500 text-center md:col-span-2 py-8 bg-black/30 rounded-xl border border-dashed border-gray-800">
+            No notes yet. Start writing above!
+          </p>
         ) : (
           initialNotes.map((note) => (
-            <div key={note.id} className="bg-black p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between min-h-[160px]">
+            <div key={note.id} className="bg-black p-5 rounded-xl shadow-md border border-gray-800 flex flex-col justify-between min-h-[180px] transition hover:border-gray-700">
               {editingId === note.id ? (
                 <div className="space-y-3 w-full">
                   <input
                     type="text"
                     value={editTitle}
                     onChange={(e) => setEditTitle(e.target.value)}
-                    className="w-full p-1 border rounded"
+                    className="w-full p-2 bg-gray-900 border border-gray-700 rounded text-slate-100 focus:outline-none focus:border-blue-500"
                   />
                   <textarea
                     value={editContent}
                     onChange={(e) => setEditContent(e.target.value)}
-                    rows={2}
-                    className="w-full p-1 border rounded"
+                    rows={3}
+                    className="w-full p-2 bg-gray-900 border border-gray-700 rounded text-slate-100 focus:outline-none focus:border-blue-500 resize-none"
                   />
                   <div className="flex gap-2 justify-end">
-                    <button onClick={() => setEditingId(null)} className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-md">
-                      <X size={16} />
+                    <button onClick={() => setEditingId(null)} className="p-1.5 text-gray-400 hover:bg-gray-800 rounded-md transition">
+                      <X size={18} />
                     </button>
-                    <button onClick={() => handleUpdate(note.id)} className="p-1.5 text-green-600 hover:bg-green-50 rounded-md">
-                      <Check size={16} />
+                    <button onClick={() => handleUpdate(note.id)} className="p-1.5 text-green-400 hover:bg-green-950/30 rounded-md transition">
+                      <Check size={18} />
                     </button>
                   </div>
                 </div>
               ) : (
                 <>
-                  <div>
-                    <h4 className="font-bold text-gray-800 text-lg mb-2">{note.title}</h4>
-                    <p className="text-gray-600 text-sm whitespace-pre-wrap">{note.content}</p>
+                  <div className="space-y-3">
+                    <div>
+                      <h4 className="font-bold text-slate-100 text-lg mb-1 truncate">{note.title}</h4>
+                      <p className="text-slate-300 text-sm whitespace-pre-wrap break-words">{note.content}</p>
+                    </div>
+
+                    {note.image_url && (
+                      <div className="relative w-full h-40 rounded-lg overflow-hidden border border-gray-800 bg-gray-900 shadow-inner">
+                        <img 
+                          src={note.image_url} 
+                          alt={note.title} 
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                      </div>
+                    )}
                   </div>
-                  <div className="flex justify-between items-center pt-4 mt-4 border-t border-gray-50">
-                    <span className="text-xs text-gray-400">
+
+                  <div className="flex justify-between items-center pt-3 mt-4 border-t border-gray-900">
+                    <span className="text-xs text-gray-500 font-medium">
                       {new Date(note.created_at).toLocaleDateString()}
                     </span>
                     <div className="flex gap-1">
-                      <button onClick={() => handleStartEdit(note)} className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition">
+                      <button onClick={() => handleStartEdit(note)} className="p-1.5 text-gray-400 hover:text-blue-400 hover:bg-gray-900 rounded-md transition">
                         <Edit3 size={16} />
                       </button>
-                      <button onClick={() => handleDelete(note.id)} className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-md transition">
+                      <button onClick={() => handleDelete(note.id)} className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-900 rounded-md transition">
                         <Trash2 size={16} />
                       </button>
                     </div>

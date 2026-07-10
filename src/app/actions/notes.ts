@@ -3,7 +3,29 @@
 import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
 
-export async function createNote(title: string, content: string) {
+
+export async function uploadAttachment(formData: FormData) {
+  const supabase = await createClient()
+  const file = formData.get('file') as File
+  if (!file) return null
+
+  const fileExt = file.name.split('.').pop()
+  const fileName = `${Math.random()}-${Date.now()}.${fileExt}`
+
+  const { data, error } = await supabase.storage
+    .from('note-attachments') 
+    .upload(fileName, file)
+
+  if (error) throw new Error('Upload failed: ' + error.message)
+
+  const { data: { publicUrl } } = supabase.storage
+    .from('note-attachments')
+    .getPublicUrl(fileName)
+
+  return publicUrl
+}
+
+export async function createNote(title: string, content: string, imageUrl?: string | null) {
   const supabase = await createClient()
   
   const { data: { user }, error: userError } = await supabase.auth.getUser()
@@ -13,12 +35,12 @@ export async function createNote(title: string, content: string) {
     {
       title,
       content,
-      user_id: user.id 
+      user_id: user.id,
+      image_url: imageUrl 
     }
   ])
 
   if (error) throw new Error(error.message)
-  
   revalidatePath('/')
 }
 
