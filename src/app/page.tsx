@@ -1,4 +1,5 @@
 import { createClient } from '@/utils/supabase/server'
+import { redis } from '@/utils/redis/client' 
 import { redirect } from 'next/navigation'
 import NotesDashboard from './components/NotesDashboard'
 
@@ -11,11 +12,38 @@ export default async function HomePage() {
     redirect('/login')
   }
 
-  const { data: notes } = await supabase
-    .from('notes')
-    .select('*')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false })
+  const cacheKey = `user:notes:${user.id}`
+  let notes: any[] | null = null
+
+  try {
+    const cachedNotes = await redis.get<any[]>(cacheKey)
+
+    if (cachedNotes) {
+      console.log('Redis Cache HIT! Loaded notes instantly.')
+      notes = cachedNotes
+    } else {
+      console.log('Redis Cache MISS! Fetching from Supabase...')
+      
+      const { data: supabaseNotes } = await supabase
+        .from('notes')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+
+      notes = supabaseNotes || []
+
+      await redis.set(cacheKey, notes, { ex: 3600 })
+      console.log('Saved fetched notes to Redis cache.')
+    }
+  } catch (redisError) {
+    console.error('Redis Error, falling back to Supabase:', redisError)
+    const { data: supabaseNotes } = await supabase
+      .from('notes')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+    notes = supabaseNotes || []
+  }
 
   return (
     <main className="min-h-screen bg-gray-900 py-8 px-4">
