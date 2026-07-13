@@ -3,7 +3,6 @@
 import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
 
-
 export async function uploadAttachment(formData: FormData) {
   const supabase = await createClient()
   const file = formData.get('file') as File
@@ -44,12 +43,22 @@ export async function createNote(title: string, content: string, imageUrl?: stri
   revalidatePath('/')
 }
 
-export async function updateNote(id: string, title: string, content: string) {
+export async function updateNote(id: string, title: string, content: string, imageUrl?: string | null) {
   const supabase = await createClient()
+
+  const updateData: any = { 
+    title, 
+    content, 
+    updated_at: new Date().toISOString() 
+  }
+
+  if (imageUrl !== undefined) {
+    updateData.image_url = imageUrl
+  }
 
   const { error } = await supabase
     .from('notes')
-    .update({ title, content, updated_at: new Date().toISOString() })
+    .update(updateData)
     .eq('id', id)
 
   if (error) throw new Error(error.message)

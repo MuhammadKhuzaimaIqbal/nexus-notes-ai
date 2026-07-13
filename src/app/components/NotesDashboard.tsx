@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { createNote, updateNote, deleteNote, uploadAttachment } from '../actions/notes'
-import { Trash2, Edit3, Plus, X, Check } from 'lucide-react'
+import { Trash2, Edit3, Plus, X, Check, Image as ImageIcon } from 'lucide-react'
 
 interface Note {
   id: string
@@ -21,6 +21,8 @@ export default function NotesDashboard({ initialNotes }: { initialNotes: Note[] 
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editTitle, setEditTitle] = useState('')
   const [editContent, setEditContent] = useState('')
+  const [editFile, setEditFile] = useState<File | null>(null) 
+  const [updatingId, setUpdatingId] = useState<string | null>(null) 
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -55,14 +57,27 @@ export default function NotesDashboard({ initialNotes }: { initialNotes: Note[] 
     setEditingId(note.id)
     setEditTitle(note.title)
     setEditContent(note.content || '')
+    setEditFile(null) 
   }
 
   const handleUpdate = async (id: string) => {
+    setUpdatingId(id)
     try {
-      await updateNote(id, editTitle, editContent)
+      let updatedUrl = undefined 
+
+      if (editFile) {
+        const formData = new FormData()
+        formData.append('file', editFile)
+        updatedUrl = await uploadAttachment(formData)
+      }
+
+      await updateNote(id, editTitle, editContent, updatedUrl)
       setEditingId(null)
+      setEditFile(null)
     } catch (err) {
       alert('Failed to update note')
+    } finally {
+      setUpdatingId(null)
     }
   }
 
@@ -139,12 +154,33 @@ export default function NotesDashboard({ initialNotes }: { initialNotes: Note[] 
                     rows={3}
                     className="w-full p-2 bg-gray-900 border border-gray-700 rounded text-slate-100 focus:outline-none focus:border-blue-500 resize-none"
                   />
+                  
+                  <div className="bg-gray-900 p-2.5 rounded border border-gray-800 space-y-1.5">
+                    <label className="text-xs text-gray-400 font-medium flex items-center gap-1">
+                      <ImageIcon size={14} /> Replace or add image
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => setEditFile(e.target.files?.[0] || null)}
+                      className="w-full text-xs text-gray-400 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-[10px] file:font-semibold file:bg-gray-800 file:text-gray-200 hover:file:bg-gray-700 cursor-pointer"
+                    />
+                  </div>
+
                   <div className="flex gap-2 justify-end">
-                    <button onClick={() => setEditingId(null)} className="p-1.5 text-gray-400 hover:bg-gray-800 rounded-md transition">
+                    <button 
+                      onClick={() => setEditingId(null)} 
+                      disabled={updatingId === note.id}
+                      className="p-1.5 text-gray-400 hover:bg-gray-800 rounded-md transition disabled:opacity-50"
+                    >
                       <X size={18} />
                     </button>
-                    <button onClick={() => handleUpdate(note.id)} className="p-1.5 text-green-400 hover:bg-green-950/30 rounded-md transition">
-                      <Check size={18} />
+                    <button 
+                      onClick={() => handleUpdate(note.id)}
+                      disabled={updatingId === note.id}
+                      className="p-1.5 text-green-400 hover:bg-green-950/30 rounded-md transition font-semibold disabled:text-gray-600 cursor-pointer"
+                    >
+                      {updatingId === note.id ? 'Saving...' : <Check size={18} />}
                     </button>
                   </div>
                 </div>
