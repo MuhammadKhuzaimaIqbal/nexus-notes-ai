@@ -12,8 +12,10 @@
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.110.2",
     "@upstash/redis": "^1.38.0",
+    "@xenova/transformers": "^2.17.2",
     "lucide-react": "^1.24.0",
     "next": "16.2.10",
+    "openai": "^6.46.0",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
