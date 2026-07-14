@@ -15,7 +15,7 @@ export async function uploadAttachment(formData: FormData) {
   const supabase = await createClient()
   const file = formData.get('file') as File
   if (!file) return null
-c
+
   const fileExt = file.name.split('.').pop()
   const fileName = `${Math.random()}-${Date.now()}.${fileExt}`
 
