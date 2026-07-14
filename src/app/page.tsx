@@ -57,7 +57,7 @@ export default async function HomePage() {
             'use server'
             const supabase = await createClient()
             await supabase.auth.signOut()
-            redirect('/login')
+            window.location.href='/login';
           }}>
             <button className="px-4 py-2 text-sm bg-gray-900 text-red-400 rounded-lg hover:bg-gray-800 hover:text-red-600 transition">
               Sign Out
